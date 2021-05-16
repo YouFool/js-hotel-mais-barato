@@ -1,50 +1,13 @@
-const moment = require('moment');
+const formatarData = require("./utils/dataUtils");
+const obterHoteis = require('./data/hotels.js');
 
-// Input
-// Regular: 16Mar2020(mon), 17Mar2020(tues), 18Mar2020(wed)
-
-// Criar um objeto de opcoes com os valores da tabela de preços de cada hotel
-const opcoes = [
-    {
-        nome: "Parque das flores",
-        classificacao: 3,
-        regular: {
-            diaDeSemana: 110,
-            finalDeSemana: 90
-        },
-        fidelidade: {
-            diaDeSemana: 80,
-            finalDeSemana: 80
-        }
-    },
-    {
-        nome: "Jardim Botânico",
-        classificacao: 4,
-        regular: {
-            diaDeSemana: 160,
-            finalDeSemana: 60
-        },
-        fidelidade: {
-            diaDeSemana: 110,
-            finalDeSemana: 50
-        }
-    },
-    {
-        nome: "Mar Atlântico",
-        classificacao: 5,
-        regular: {
-            diaDeSemana: 220,
-            finalDeSemana: 150
-        },
-        fidelidade: {
-            diaDeSemana: 100,
-            finalDeSemana: 40
-        }
-    }
-]
-
+/**
+ * Recebe uma solicitação de reserva e retorna o nome do hotel mais barato.
+ * @param reserva string com a reserva no formato <tipo_do_cliente>: <data1>, <data2>, <data3>
+ * @returns {string|*} o nome do hotel mais barato
+ */
 const hotelMaisBarato = reserva => {
-    let partesReserva = reserva.split(":");
+    const partesReserva = reserva.split(":");
     const tipoDoCliente = partesReserva[0];
     const diasEstadiaFormatados = partesReserva[1]
         .split(",")
@@ -54,44 +17,77 @@ const hotelMaisBarato = reserva => {
 }
 
 /**
- * Recebe uma data no formato 'DDMMMYYYY(ddd)' e formata a mesma em uma data do tipo {*|moment.Moment}
- * @param data data no formato 'DDMMMYYYY(ddd)' ex: 20Mar2020(fri)
- * @returns {*|moment.Moment} data no formato do moment
+ * Calcula o valor da estadia de acordo com o tipo do cliente e diárias.
+ * @param tipoDoCliente tipo do cliente (fidelidade/regular)
+ * @param diasEstadia array com os dias da estadia
+ * @param hotel informações do hotel para serem usados no cálculo
+ * @returns array com os valores de cada diária
+ * @private
  */
-const formatarData = data => {
-    return moment(data, 'DDMMMYYYY(ddd)');
+const _calcularEstadiaDiariasPorHotel = (tipoDoCliente, diasEstadia, hotel) => {
+    const diarias = [];
+
+    diasEstadia.forEach(dia => {
+        switch (dia.day()) {
+            case 0:
+            case 6:
+                if (tipoDoCliente === "Fidelidade") {
+                    diarias.push(hotel.fidelidade.finalDeSemana);
+                } else {
+                    diarias.push(hotel.regular.finalDeSemana);
+                }
+                break;
+            default:
+                if (tipoDoCliente === "Fidelidade") {
+                    diarias.push(hotel.fidelidade.diaDeSemana);
+                } else {
+                    diarias.push(hotel.regular.diaDeSemana);
+                }
+        }
+    });
+
+    return diarias;
 }
 
+/**
+ * Percorre todas as simulações feitas e verifica qual a simulação com o menor valor.
+ * Caso uma simulação tenha o mesmo valor, a classificação é usada como critério de desempate.
+ * @param simulacoes array com simulações
+ * @returns a simulação mais barata
+ * @private
+ */
+function _obterMelhorHotelPorSimulacoes(simulacoes) {
+    let opcaoMenorCusto = simulacoes[0];
 
+    for (let i = 1; i < simulacoes.length; i++) {
+        const simulacaoAtual = simulacoes[i];
+
+        if (simulacaoAtual.valorTotal < opcaoMenorCusto.valorTotal ||
+            simulacaoAtual.valorTotal === opcaoMenorCusto.valorTotal && simulacaoAtual.classificacao > opcaoMenorCusto.classificacao) {
+            opcaoMenorCusto = simulacaoAtual;
+        }
+    }
+
+    return opcaoMenorCusto;
+}
+
+/**
+ * Obtém uma lista de opções de hotéis e para cada hotel realiza o cálculo do custo de suas diárias.
+ * Após isso, retorna o nome do hotel de menor custo e melhor classificação.
+ *
+ * @param tipoDoCliente tipo do cliente (fidelidade/regular)
+ * @param diasEstadia array com os dias da estadia
+ * @returns {string|*} o nome do hotel mais barato
+ * @private
+ */
 const _hotelMaisBarato = (tipoDoCliente, diasEstadia) => {
+    const opcoes = obterHoteis();
+
     let resultados = [];
     for (let i = 0; i < opcoes.length; i++) {
-        // Pego o hotel
         let hotelAtual = opcoes[i];
 
-        let valor = 0;
-        const diarias = [];
-        console.log(diasEstadia);
-        diasEstadia.forEach(dia => {
-            // Calculo o valor por dia conforme o obj opcoes
-            switch (dia.day()) {
-                case 0:
-                case 6:
-                    if (tipoDoCliente === "Fidelidade") {
-                        diarias.push(hotelAtual.fidelidade.finalDeSemana);
-                    } else {
-                        diarias.push(hotelAtual.regular.finalDeSemana);
-                    }
-                    break;
-                default:
-                    if (tipoDoCliente === "Fidelidade") {
-                        diarias.push(hotelAtual.fidelidade.diaDeSemana);
-                    } else {
-                        diarias.push(hotelAtual.regular.diaDeSemana);
-                    }
-            }
-
-        })
+        const diarias = _calcularEstadiaDiariasPorHotel(tipoDoCliente, diasEstadia, hotelAtual);
 
         resultados.push({
             nome: hotelAtual.nome,
@@ -101,22 +97,11 @@ const _hotelMaisBarato = (tipoDoCliente, diasEstadia) => {
         });
     }
     console.log(resultados);
-    // Após ter todas as simulaçoes, devemos verificar qual das simulaçoes é a mais barata
-    // Iterar resultados e pegar o resultado com menor valor
+    let melhorOpcao = _obterMelhorHotelPorSimulacoes(resultados);
 
-    let opcaoMenorCusto = resultados[0];
-    for (let i = 1; i < resultados.length; i++) {
-        const resultadoAtual = resultados[i];
-        if (resultadoAtual.valorTotal < opcaoMenorCusto.valorTotal ||
-            resultadoAtual.valorTotal === opcaoMenorCusto.valorTotal && resultadoAtual.classificacao > opcaoMenorCusto.classificacao) {
-            // Tenho um hotel com menor custo
-            opcaoMenorCusto = resultadoAtual;
-        }
-    }
+    console.log(melhorOpcao);
 
-    console.log(opcaoMenorCusto);
-
-    return opcaoMenorCusto.nome;
+    return melhorOpcao.nome;
 }
 
 module.exports = hotelMaisBarato;
