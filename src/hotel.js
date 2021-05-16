@@ -17,6 +17,35 @@ const hotelMaisBarato = reserva => {
 }
 
 /**
+ * Obtém uma lista de opções de hotéis e para cada hotel realiza o cálculo do custo de suas diárias.
+ * Após isso, retorna o nome do hotel de menor custo e melhor classificação.
+ *
+ * @param tipoDoCliente tipo do cliente (fidelidade/regular)
+ * @param diasEstadia array com os dias da estadia
+ * @returns {string|*} o nome do hotel mais barato
+ * @private
+ */
+const _hotelMaisBarato = (tipoDoCliente, diasEstadia) => {
+    const opcoes = obterHoteis();
+
+    const resultados = [];
+    for (let i = 0; i < opcoes.length; i++) {
+        let hotelAtual = opcoes[i];
+
+        const diarias = _calcularEstadiaDiariasPorHotel(tipoDoCliente, diasEstadia, hotelAtual);
+
+        resultados.push({
+            nome: hotelAtual.nome,
+            classificacao: hotelAtual.classificacao,
+            diarias: diarias,
+            valorTotal: diarias.reduce((a, b) => a + b, 0)
+        });
+    }
+
+    return _obterMelhorHotelPorSimulacoes(resultados).nome;
+}
+
+/**
  * Calcula o valor da estadia de acordo com o tipo do cliente e diárias.
  * @param tipoDoCliente tipo do cliente (fidelidade/regular)
  * @param diasEstadia array com os dias da estadia
@@ -69,39 +98,6 @@ function _obterMelhorHotelPorSimulacoes(simulacoes) {
     }
 
     return opcaoMenorCusto;
-}
-
-/**
- * Obtém uma lista de opções de hotéis e para cada hotel realiza o cálculo do custo de suas diárias.
- * Após isso, retorna o nome do hotel de menor custo e melhor classificação.
- *
- * @param tipoDoCliente tipo do cliente (fidelidade/regular)
- * @param diasEstadia array com os dias da estadia
- * @returns {string|*} o nome do hotel mais barato
- * @private
- */
-const _hotelMaisBarato = (tipoDoCliente, diasEstadia) => {
-    const opcoes = obterHoteis();
-
-    let resultados = [];
-    for (let i = 0; i < opcoes.length; i++) {
-        let hotelAtual = opcoes[i];
-
-        const diarias = _calcularEstadiaDiariasPorHotel(tipoDoCliente, diasEstadia, hotelAtual);
-
-        resultados.push({
-            nome: hotelAtual.nome,
-            classificacao: hotelAtual.classificacao,
-            diarias: diarias,
-            valorTotal: diarias.reduce((a, b) => a + b, 0)
-        });
-    }
-    console.log(resultados);
-    let melhorOpcao = _obterMelhorHotelPorSimulacoes(resultados);
-
-    console.log(melhorOpcao);
-
-    return melhorOpcao.nome;
 }
 
 module.exports = hotelMaisBarato;
